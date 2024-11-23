@@ -1,12 +1,26 @@
-import AttendanceTracker from './components/AttendanceTracker'
-import SupabaseTest from './components/SupabaseTest';
-import StudentDirectory from './components/StudentDirectory';
-import StudentRegistration from './components/__StudentRegistration';
+// src/App.jsx
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Toaster } from 'sonner';  // Use sonner directly
+import RootLayout from '@/components/layout/RootLayout';
+import Dashboard from '@/pages/Dashboard';
+import Registration from '@/pages/Registration';
+import Tournaments from '@/pages/Tournaments';
+import StudentDirectory from '@/pages/StudentDirectory';
+import NotFound from '@/pages/NotFound';
 
-function App() {
+export default function App() {
   return (
-    <StudentRegistration />
-  )
+    <Router>
+      <Routes>
+        <Route path="/" element={<RootLayout />}>
+          <Route index element={<Dashboard />} />
+          <Route path="registration" element={<Registration />} />
+          <Route path="tournaments" element={<Tournaments />} />
+          <Route path="students" element={<StudentDirectory />} />
+          <Route path="*" element={<NotFound />} />
+        </Route>
+      </Routes>
+      <Toaster />
+    </Router>
+  );
 }
-
-export default App
