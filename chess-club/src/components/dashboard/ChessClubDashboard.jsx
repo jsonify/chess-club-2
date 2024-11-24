@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import ChessClubHeader from './ChessClubHeader';
 import DashboardStats from './DashboardStats';
 import ClubDayAlert from './alerts/ClubDayAlert';
+import AttendanceTab from './tabs/AttendanceTab';
 import AttendanceTracker from '@/components/attendance/AttendanceTracker';
 import StudentsTab from './tabs/StudentsTab';
 import TournamentTab from './tabs/TournamentTab';
@@ -19,8 +20,7 @@ export default function ChessClubDashboard() {
   const [stats, setStats] = useState({
     totalStudents: 0,
     presentToday: 0,
-    attendanceRate: 0,
-    activeMatches: 0
+    attendanceRate: 0
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -219,14 +219,16 @@ export default function ChessClubDashboard() {
         </div>
 
         <div className="mt-4">
-          {activeTab === 'attendance' && (
-            <AttendanceTracker
-              students={students}
-              attendance={attendance}
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-              toggleAttendance={toggleAttendance}
-              loading={loading}
+        {activeTab === 'attendance' && (
+          <AttendanceTab 
+            students={students}
+            attendance={attendance}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            toggleAttendance={toggleAttendance}
+            loading={loading}
+            stats={stats}
+            setStats={setStats}
             />
           )}
           {activeTab === 'students' && (
