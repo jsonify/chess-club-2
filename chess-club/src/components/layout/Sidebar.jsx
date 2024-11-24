@@ -1,7 +1,6 @@
-// src/components/layout/Sidebar.jsx
 import { Link, useLocation } from 'react-router-dom';
 import { X } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 export default function Sidebar({ open, onClose }) {
   const location = useLocation();
@@ -13,28 +12,24 @@ export default function Sidebar({ open, onClose }) {
     { href: '/students', label: 'Students' }
   ];
 
+  const handleLinkClick = (href) => {
+    onClose();
+    toast.success(`Navigated to ${href}`);
+  };
+
   return (
     <div
-      className={cn(
-        'fixed inset-0 z-50 lg:hidden',
-        open ? 'visible' : 'invisible'
-      )}
+      className={`fixed inset-0 z-50 lg:hidden ${open ? 'visible' : 'invisible'}`}
     >
       {/* Backdrop */}
       <div
-        className={cn(
-          'fixed inset-0 bg-gray-900/80 transition-opacity duration-300',
-          open ? 'opacity-100' : 'opacity-0'
-        )}
+        className={`fixed inset-0 bg-gray-900/80 transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0'}`}
         onClick={onClose}
       />
 
       {/* Sidebar panel */}
       <div
-        className={cn(
-          'fixed inset-y-0 left-0 w-64 bg-white transform transition-transform duration-300',
-          open ? 'translate-x-0' : '-translate-x-full'
-        )}
+        className={`fixed inset-y-0 left-0 w-64 bg-white transform transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'}`}
       >
         {/* Close button */}
         <div className="flex h-16 items-center justify-between px-6 border-b">
@@ -54,13 +49,8 @@ export default function Sidebar({ open, onClose }) {
             <Link
               key={link.href}
               to={link.href}
-              className={cn(
-                'px-4 py-2 text-sm font-medium rounded-md',
-                location.pathname === link.href
-                  ? 'bg-gray-100 text-gray-900'
-                  : 'text-gray-600 hover:bg-gray-50'
-              )}
-              onClick={onClose}
+              className={`px-4 py-2 text-sm font-medium rounded-md ${location.pathname === link.href ? 'bg-gray-100 text-gray-900' : 'text-gray-600 hover:bg-gray-50'}`}
+              onClick={() => handleLinkClick(link.href)}
             >
               {link.label}
             </Link>

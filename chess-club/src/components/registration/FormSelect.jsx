@@ -1,5 +1,5 @@
 // src/components/registration/FormSelect.jsx
-export function FormSelect({ 
+export default function FormSelect({ 
     name, 
     label, 
     options, 

@@ -1,6 +1,5 @@
-// src/App.jsx
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { Toaster } from 'sonner';  // Use sonner directly
+import { Toaster } from 'sonner';
 import RootLayout from '@/components/layout/RootLayout';
 import Dashboard from '@/pages/Dashboard';
 import Registration from '@/pages/Registration';

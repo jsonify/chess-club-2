@@ -1,4 +1,7 @@
 // src/components/registration/StudentInfo.jsx
+import FormInput from '@/components/registration/FormInput';
+import FormSelect from '@/components/registration/FormSelect';
+
 export function StudentInfo({ formData, handleChange, errors }) {
     const TEACHERS = [
       'Unruh', 'Alderson', 'Otterlee', 'Chapin', 'Larson',

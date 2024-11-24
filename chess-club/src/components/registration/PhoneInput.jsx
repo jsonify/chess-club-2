@@ -1,7 +1,7 @@
 // src/components/registration/PhoneInput.jsx
 import React from 'react';
 
-export function PhoneInput({ 
+export default function PhoneInput({ 
   name, 
   label, 
   required = false, 

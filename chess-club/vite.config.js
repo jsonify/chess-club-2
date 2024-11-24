@@ -9,4 +9,7 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    target: 'esnext', // or 'es2020', 'es2022', 'node16', 'nodenext'
+  },
 });

@@ -1,7 +1,7 @@
 // src/components/registration/FormInput.jsx
 import React from 'react';
 
-export function FormInput({ 
+export default function FormInput({ 
   name, 
   label, 
   type = 'text', 

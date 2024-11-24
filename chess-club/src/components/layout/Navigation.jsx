@@ -1,7 +1,6 @@
-// src/components/layout/Navigation.jsx
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, ChessKnight } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Menu, Swords } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function Navigation({ onMenuClick }) {
   const location = useLocation();
@@ -13,6 +12,10 @@ export default function Navigation({ onMenuClick }) {
     { href: '/students', label: 'Students' }
   ];
 
+  const handleLinkClick = (href) => {
+    toast.success(`Navigated to ${href}`);
+  };
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -21,14 +24,14 @@ export default function Navigation({ onMenuClick }) {
           <div className="flex items-center">
             <button
               type="button"
-              className="lg:hidden -m-2.5 p-2.5 text-gray-700"
+              className="-m-2.5 p-2.5 text-gray-700 lg:hidden"
               onClick={onMenuClick}
             >
               <Menu className="h-6 w-6" />
             </button>
             
             <Link to="/" className="flex items-center gap-2 ml-4 lg:ml-0">
-              <ChessKnight className="h-8 w-8 text-blue-600" />
+              <Swords className="h-8 w-8 text-blue-600" />
               <span className="font-bold text-xl">Chess Club</span>
             </Link>
           </div>
@@ -39,12 +42,8 @@ export default function Navigation({ onMenuClick }) {
               <Link
                 key={link.href}
                 to={link.href}
-                className={cn(
-                  'px-3 py-2 text-sm font-medium rounded-md',
-                  location.pathname === link.href
-                    ? 'bg-gray-100 text-gray-900'
-                    : 'text-gray-600 hover:bg-gray-50'
-                )}
+                className={`px-3 py-2 text-sm font-medium rounded-md ${location.pathname === link.href ? 'bg-gray-100 text-gray-900' : 'text-gray-600 hover:bg-gray-50'}`}
+                onClick={() => handleLinkClick(link.href)}
               >
                 {link.label}
               </Link>

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { StudentInfo } from './StudentInfo';
+import { StudentInfo } from '@/components/students/StudentInfo';
 import { ContactInfo } from './ContactInfo';
-import { formatPhoneNumber, validatePhoneNumber, validateEmail } from '../utils/validationUtils';
+import { formatPhoneNumber, validatePhoneNumber, validateEmail } from '@/lib/validationUtils';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -143,10 +143,9 @@ export default function StudentRegistration() {
         registered_at: new Date().toISOString()
       };
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('students')
-        .insert([submissionData])
-        .select();
+        .insert([submissionData]);
 
       if (error) throw error;
 

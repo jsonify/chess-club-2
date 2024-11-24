@@ -1,204 +1,251 @@
-import React, { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
+import { formatDate, isWednesday } from '@/lib/utils';
+import { toast } from 'sonner';
 import ChessClubHeader from './ChessClubHeader';
 import DashboardStats from './DashboardStats';
-import AttendanceTab from './AttendanceTab';
-import TournamentTab from './TournamentTab';
-import StudentsTab from './StudentsTab';
-import ClubDayAlert from './ClubDayAlert';
-import LoadingSpinner from './LoadingSpinner';
-import ErrorMessage from './ErrorMessage';
-
-// Initialize Supabase client
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
+import ClubDayAlert from './alerts/ClubDayAlert';
+import AttendanceTab from './tabs/AttendanceTab';
+import StudentsTab from './tabs/StudentsTab';
+import TournamentTab from './tabs/TournamentTab';
 
 export default function ChessClubDashboard() {
-  // State management
+  const [activeTab, setActiveTab] = useState('attendance');
   const [searchQuery, setSearchQuery] = useState('');
-  const [attendance, setAttendance] = useState({});
   const [students, setStudents] = useState([]);
+  const [attendance, setAttendance] = useState({});
+  const [achievementStats, setAchievementStats] = useState([]);
   const [recentMatches, setRecentMatches] = useState([]);
-  const [achievementStats, setAchievementStats] = useState({});
+  const [stats, setStats] = useState({
+    totalStudents: 0,
+    presentToday: 0,
+    attendanceRate: 0,
+    activeMatches: 0
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Club session configuration
-  const sessionConfig = {
-    start: "3:30 PM",
-    end: "4:00 PM",
-    isClubDay: new Date().getDay() === 3 // Wednesday
-  };
-
-  // Fetch initial data
   useEffect(() => {
-    async function fetchData() {
+    async function fetchDashboardData() {
       try {
         setLoading(true);
         
-        // Fetch students
+        // Fetch students with attendance status
         const { data: studentsData, error: studentsError } = await supabase
           .from('students')
-          .select('*')
+          .select(`
+            *,
+            attendance_records!inner(
+              check_in_time,
+              check_out_time,
+              session_id,
+              attendance_sessions!inner(
+                session_date
+              )
+            )
+          `)
+          .eq('active', true)
           .order('grade')
           .order('last_name');
-        
+          
         if (studentsError) throw studentsError;
 
-        // Fetch today's attendance
-        const { data: attendanceData, error: attendanceError } = await supabase
-          .from('attendance_records')
-          .select('*')
-          .eq('session_date', new Date().toISOString().split('T')[0]);
+        // Process attendance data
+        const today = formatDate(new Date());
+        const attendanceMap = {};
+        studentsData?.forEach(student => {
+          const todayAttendance = student.attendance_records?.find(record => 
+            formatDate(record.attendance_sessions.session_date) === today
+          );
+          if (todayAttendance) {
+            attendanceMap[student.id] = true;
+          }
+        });
 
-        if (attendanceError) throw attendanceError;
-
-        // Fetch recent matches
-        const { data: matchesData, error: matchesError } = await supabase
-          .from('matches')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(10);
-
-        if (matchesError) throw matchesError;
-
-        // Fetch achievement stats
-        const { data: statsData, error: statsError } = await supabase
-          .rpc('get_achievement_stats');
-
-        if (statsError) throw statsError;
-
-        // Update state with fetched data
         setStudents(studentsData || []);
-        setAttendance(
-          (attendanceData || []).reduce((acc, record) => ({
-            ...acc,
-            [record.student_id]: true
-          }), {})
-        );
-        setRecentMatches(matchesData || []);
-        setAchievementStats(statsData || {});
-        setError(null);
+        setAttendance(attendanceMap);
 
+        // Fetch recent matches if the table exists
+        try {
+          const { data: matches, error: matchesError } = await supabase
+            .from('matches')
+            .select(`
+              *,
+              player1:students!player1_id(first_name, last_name),
+              player2:students!player2_id(first_name, last_name)
+            `)
+            .order('created_at', { ascending: false })
+            .limit(5);
+
+          if (!matchesError) {
+            setRecentMatches(matches || []);
+          }
+        } catch (matchError) {
+          console.log('Matches table not available:', matchError);
+        }
+
+        // Update dashboard stats
+        setStats({
+          totalStudents: studentsData?.length || 0,
+          presentToday: Object.keys(attendanceMap).length,
+          attendanceRate: studentsData?.length 
+            ? Math.round((Object.keys(attendanceMap).length / studentsData.length) * 100) 
+            : 0,
+          activeMatches: 0 // We'll update this when matches functionality is added
+        });
+        
+        setError(null);
       } catch (err) {
-        setError(err.message);
+        console.error('Error fetching dashboard data:', err);
+        setError(err);
+        toast.error('Failed to load dashboard data');
       } finally {
         setLoading(false);
       }
     }
 
-    fetchData();
+    fetchDashboardData();
   }, []);
 
-  // Derived state calculations
-  const stats = {
-    totalStudents: students.length,
-    presentCount: Object.values(attendance).filter(Boolean).length,
-    attendanceRate: students.length 
-      ? Math.round((Object.values(attendance).filter(Boolean).length / students.length) * 100) 
-      : 0
-  };
-
-  // Event handlers
-  const handleAttendanceToggle = async (studentId) => {
+  const toggleAttendance = async (studentId) => {
     try {
-      const isPresent = !attendance[studentId];
+      const isPresent = attendance[studentId];
+      const today = formatDate(new Date());
       
       if (isPresent) {
-        // Check in student
-        const { error: checkInError } = await supabase
+        // First find the session_id for today
+        const { data: sessionData } = await supabase
+          .from('attendance_sessions')
+          .select('id')
+          .eq('session_date', today)
+          .single();
+
+        if (!sessionData) {
+          throw new Error('No session found for today');
+        }
+
+        // Then delete the attendance record
+        await supabase
           .from('attendance_records')
-          .insert([{
+          .delete()
+          .match({ 
+            student_id: studentId, 
+            session_id: sessionData.id 
+          });
+      } else {
+        // First get or create today's session
+        let { data: sessionData } = await supabase
+          .from('attendance_sessions')
+          .select('id')
+          .eq('session_date', today)
+          .single();
+
+        if (!sessionData) {
+          // Create new session for today
+          const { data: newSession, error: sessionError } = await supabase
+            .from('attendance_sessions')
+            .insert([{
+              session_date: today,
+              start_time: '15:30',
+              end_time: '16:00'
+            }])
+            .select()
+            .single();
+
+          if (sessionError) throw sessionError;
+          sessionData = newSession;
+        }
+
+        // Then create the attendance record
+        await supabase
+          .from('attendance_records')
+          .insert([{ 
             student_id: studentId,
-            session_date: new Date().toISOString().split('T')[0],
+            session_id: sessionData.id,
             check_in_time: new Date().toISOString()
           }]);
-
-        if (checkInError) throw checkInError;
-      } else {
-        // Check out student
-        const { error: checkOutError } = await supabase
-          .from('attendance_records')
-          .update({ check_out_time: new Date().toISOString() })
-          .match({ 
-            student_id: studentId,
-            session_date: new Date().toISOString().split('T')[0]
-          });
-
-        if (checkOutError) throw checkOutError;
       }
 
       // Update local state
       setAttendance(prev => ({
         ...prev,
-        [studentId]: isPresent
+        [studentId]: !isPresent
+      }));
+
+      // Update stats
+      setStats(prev => ({
+        ...prev,
+        presentToday: !isPresent ? prev.presentToday + 1 : prev.presentToday - 1,
+        attendanceRate: Math.round(((prev.presentToday + (!isPresent ? 1 : -1)) / prev.totalStudents) * 100)
       }));
 
     } catch (err) {
-      setError(`Failed to update attendance: ${err.message}`);
+      console.error('Error toggling attendance:', err);
+      toast.error(err.message || 'Failed to update attendance');
     }
   };
 
-  if (loading) {
-    return <LoadingSpinner />;
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      <ChessClubHeader sessionConfig={sessionConfig} />
+    <div className="space-y-6">
+      <ChessClubHeader />
+      
+      {isWednesday(new Date()) && <ClubDayAlert />}
+      
+      <DashboardStats 
+        stats={stats} 
+        loading={loading} 
+        error={error} 
+      />
 
-      <main className="mx-auto max-w-7xl px-4 py-6">
-        {error && <ErrorMessage message={error} />}
-        
-        {sessionConfig.isClubDay && (
-          <ClubDayAlert 
-            startTime={sessionConfig.start} 
-            endTime={sessionConfig.end} 
-          />
-        )}
+      <div className="space-y-4">
+        <div className="border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+            {['attendance', 'students', 'tournaments'].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`
+                  whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium
+                  ${activeTab === tab
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  }
+                `}
+              >
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </button>
+            ))}
+          </nav>
+        </div>
 
-        <DashboardStats 
-          stats={stats}
-          recentMatches={recentMatches}
-        />
-
-        <Tabs defaultValue="attendance" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="attendance">Attendance</TabsTrigger>
-            <TabsTrigger value="tournaments">Tournaments</TabsTrigger>
-            <TabsTrigger value="students">Students</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="attendance">
+        <div className="mt-4">
+          {activeTab === 'attendance' && (
             <AttendanceTab 
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
               students={students}
               attendance={attendance}
-              onAttendanceToggle={handleAttendanceToggle}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              toggleAttendance={toggleAttendance}
+              loading={loading}
             />
-          </TabsContent>
-
-          <TabsContent value="tournaments">
-            <TournamentTab 
-              achievementStats={achievementStats}
-              recentMatches={recentMatches}
-            />
-          </TabsContent>
-
-          <TabsContent value="students">
+          )}
+          {activeTab === 'students' && (
             <StudentsTab 
               students={students}
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
+              loading={loading}
             />
-          </TabsContent>
-        </Tabs>
-      </main>
+          )}
+          {activeTab === 'tournaments' && (
+            <TournamentTab 
+              achievementStats={achievementStats}
+              recentMatches={recentMatches}
+              loading={loading}
+            />
+          )}
+        </div>
+      </div>
     </div>
   );
 }

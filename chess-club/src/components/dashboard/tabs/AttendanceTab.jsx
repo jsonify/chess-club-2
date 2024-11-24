@@ -1,35 +1,42 @@
 import React from 'react';
 import { Search, CheckCircle } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardContent, Typography, InputAdornment, TextField } from '@mui/material';
 
-export default function AttendanceTab({ 
-  searchQuery, 
-  setSearchQuery, 
-  students, 
-  attendance, 
-  toggleAttendance 
+export default function AttendanceTab({
+  searchQuery,
+  setSearchQuery,
+  students,
+  attendance,
+  toggleAttendance
 }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Today's Attendance</CardTitle>
-        <CardDescription>Track student check-in/check-out</CardDescription>
-      </CardHeader>
+    <Card sx={{ backgroundColor: 'white', borderRadius: 2, boxShadow: 3 }}>
+      <CardHeader
+        title="Today's Attendance"
+        subheader="Track student check-in/check-out"
+        sx={{ backgroundColor: 'grey.50', borderBottom: 1, borderColor: 'grey.200' }}
+      />
       <CardContent>
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-          <input
-            type="text"
+        <div className="mb-4">
+          <TextField
             placeholder="Search by name or teacher..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border rounded-lg"
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search className="h-5 w-5 text-gray-400" />
+                </InputAdornment>
+              ),
+            }}
+            variant="outlined"
+            fullWidth
           />
         </div>
 
         <div className="divide-y">
           {students.map(student => (
-            <div 
+            <div
               key={student.id}
               className={`flex items-center justify-between p-4 hover:bg-gray-50 cursor-pointer ${
                 attendance[student.id] ? 'bg-blue-50' : ''
@@ -37,16 +44,18 @@ export default function AttendanceTab({
               onClick={() => toggleAttendance(student.id)}
             >
               <div>
-                <div className="font-medium text-gray-900">{student.name}</div>
-                <div className="text-sm text-gray-500">
+                <Typography variant="body1" className="font-medium text-gray-900">
+                  {student.name}
+                </Typography>
+                <Typography variant="body2" color="grey.500">
                   Grade {student.grade} - {student.teacher}
-                </div>
+                </Typography>
               </div>
-              <div className={`h-6 w-6 rounded-full ${
-                attendance[student.id] 
-                  ? 'text-green-500' 
-                  : 'border-2 border-gray-300'
-              }`}>
+              <div
+                className={`h-6 w-6 rounded-full ${
+                  attendance[student.id] ? 'text-green-500' : 'border-2 border-gray-300'
+                }`}
+              >
                 {attendance[student.id] && <CheckCircle className="h-6 w-6" />}
               </div>
             </div>

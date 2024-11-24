@@ -1,4 +1,9 @@
 // src/components/registration/ContactInfo.jsx
+import FormInput from './FormInput';
+import FormSelect from './FormSelect';
+import EmailInput from './EmailInput';
+import PhoneInput from './PhoneInput';
+
 export function ContactInfo({ 
     formData, 
     handleChange, 

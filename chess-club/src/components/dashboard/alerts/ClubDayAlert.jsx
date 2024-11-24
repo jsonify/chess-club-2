@@ -1,13 +1,18 @@
-// ClubDayAlert.jsx
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CalendarClock } from 'lucide-react';
 
-export function ClubDayAlert({ startTime, endTime }) {
+export default function ClubDayAlert() {
   return (
-    <Alert className="mb-6">
-      <AlertDescription className="flex items-center justify-between">
-        <span>Chess Club meets today! Make sure to check in all students.</span>
-        <span className="text-sm text-gray-500">{startTime} - {endTime}</span>
-      </AlertDescription>
-    </Alert>
+    <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
+      <div className="flex items-center">
+        <div className="flex-shrink-0">
+          <CalendarClock className="h-5 w-5 text-blue-400" />
+        </div>
+        <div className="ml-3">
+          <p className="text-sm text-blue-700">
+            Today is Chess Club day! Don't forget to take attendance.
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }
