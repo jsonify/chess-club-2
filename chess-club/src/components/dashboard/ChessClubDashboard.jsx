@@ -1,20 +1,26 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { formatDate, isWednesday } from '@/lib/utils';
+import { formatDate, isWednesday, getNextWednesday } from '@/lib/utils';
 import { toast } from 'sonner';
 import ChessClubHeader from './ChessClubHeader';
 import DashboardStats from './DashboardStats';
 import ClubDayAlert from './alerts/ClubDayAlert';
 import AttendanceTab from './tabs/AttendanceTab';
-import AttendanceTracker from '@/components/attendance/AttendanceTracker';
 import StudentsTab from './tabs/StudentsTab';
 import TournamentTab from './tabs/TournamentTab';
+import { 
+  handleCheckIn, 
+  handleCheckOut, 
+  updateAttendanceState, 
+  updateStatsState 
+} from '@/lib/attendanceHelpers';
 
 export default function ChessClubDashboard() {
   const [activeTab, setActiveTab] = useState('attendance');
   const [searchQuery, setSearchQuery] = useState('');
   const [students, setStudents] = useState([]);
   const [attendance, setAttendance] = useState({});
+  const [currentSession, setCurrentSession] = useState(null);
   const [achievementStats, setAchievementStats] = useState([]);
   const [recentMatches, setRecentMatches] = useState([]);
   const [stats, setStats] = useState({
@@ -25,47 +31,118 @@ export default function ChessClubDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const getOrCreateSession = async (date) => {
+    const formattedDate = formatDate(date);
+    
+    // Try to get existing session
+    let { data: existingSession } = await supabase
+      .from('attendance_sessions')
+      .select('*')
+      .eq('session_date', formattedDate)
+      .single();
+
+    if (!existingSession) {
+      // Create new session
+      const { data: newSession, error: createError } = await supabase
+        .from('attendance_sessions')
+        .insert([{
+          session_date: formattedDate,
+          start_time: '15:30',
+          end_time: '16:00'
+        }])
+        .select()
+        .single();
+
+      if (createError) throw createError;
+      existingSession = newSession;
+    }
+
+    return existingSession;
+  };
+
+  const loadAttendanceData = async () => {
+    try {
+      console.log('Loading attendance data...');
+      setLoading(true);
+      
+      const targetDate = isWednesday(new Date()) ? new Date() : getNextWednesday();
+      console.log('Target date:', targetDate);
+      
+      // Get or create the session first
+      const session = await getOrCreateSession(targetDate);
+      console.log('Current session:', session);
+      setCurrentSession(session);
+  
+      // Get attendance records for this session
+      const { data: records, error: recordsError } = await supabase
+        .from('attendance_records')
+        .select('*')
+        .eq('session_id', session.id);
+  
+      if (recordsError) throw recordsError;
+  
+      console.log('Fetched attendance records:', records);
+  
+      // Create attendance map
+      const attendanceMap = {};
+      records?.forEach(record => {
+        attendanceMap[record.student_id] = {
+          checkedIn: Boolean(record.check_in_time),
+          checkedOut: Boolean(record.check_out_time),
+          recordId: record.id
+        };
+      });
+  
+      console.log('Created attendance map:', attendanceMap);
+      setAttendance(attendanceMap);
+      
+      // Update stats
+      const presentCount = records?.filter(r => r.check_in_time).length || 0;
+      console.log('Present count:', presentCount);
+      
+      setStats(prev => ({
+        ...prev,
+        presentToday: presentCount,
+        attendanceRate: prev.totalStudents
+          ? Math.round((presentCount / prev.totalStudents) * 100)
+          : 0
+      }));
+  
+    } catch (err) {
+      console.error('Error loading attendance:', err);
+      toast.error('Failed to load attendance data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial data load
   useEffect(() => {
-    async function fetchDashboardData() {
+    async function fetchInitialData() {
       try {
         setLoading(true);
 
-        // Fetch students with attendance status
+        // Fetch students first
         const { data: studentsData, error: studentsError } = await supabase
           .from('students')
-          .select(`
-            *,
-            attendance_records!inner(
-              check_in_time,
-              check_out_time,
-              session_id,
-              attendance_sessions!inner(
-                session_date
-              )
-            )
-          `)
+          .select('*')
           .eq('active', true)
           .order('grade')
           .order('last_name');
 
         if (studentsError) throw studentsError;
-
-        // Process attendance data
-        const today = formatDate(new Date());
-        const attendanceMap = {};
-        studentsData?.forEach(student => {
-          const todayAttendance = student.attendance_records?.find(record =>
-            formatDate(record.attendance_sessions.session_date) === today
-          );
-          if (todayAttendance) {
-            attendanceMap[student.id] = true;
-          }
-        });
-
         setStudents(studentsData || []);
-        setAttendance(attendanceMap);
+        
+        // Set initial stats
+        setStats(prev => ({
+          ...prev,
+          totalStudents: studentsData.length
+        }));
 
-        // Fetch recent matches if the table exists
+        // Load attendance data
+        await loadAttendanceData();
+
+        // Load tournament data if available
         try {
           const { data: matches, error: matchesError } = await supabase
             .from('matches')
@@ -84,104 +161,145 @@ export default function ChessClubDashboard() {
           console.log('Matches table not available:', matchError);
         }
 
-        // Update dashboard stats
-        setStats({
-          totalStudents: studentsData?.length || 0,
-          presentToday: Object.keys(attendanceMap).length,
-          attendanceRate: studentsData?.length
-            ? Math.round((Object.keys(attendanceMap).length / studentsData.length) * 100)
-            : 0,
-          activeMatches: 0 // We'll update this when matches functionality is added
-        });
-
-        setError(null);
       } catch (err) {
-        console.error('Error fetching dashboard data:', err);
+        console.error('Error fetching initial data:', err);
         setError(err);
-        toast.error('Failed to load dashboard data');
+        toast.error('Failed to load data');
       } finally {
         setLoading(false);
       }
     }
 
-    fetchDashboardData();
+    fetchInitialData();
   }, []);
 
-  const toggleAttendance = async (studentId) => {
+  // Reload attendance when switching back to attendance tab
+  useEffect(() => {
+    if (activeTab === 'attendance') {
+      loadAttendanceData();
+    }
+  }, [activeTab]);
+
+  const toggleAttendance = async (studentId, action) => {
+    if (!currentSession) {
+      toast.error('No active session found');
+      return;
+    }
+  
     try {
-      const isPresent = attendance[studentId];
-      const today = formatDate(new Date());
-
-      if (isPresent) {
-        // First find the session_id for today
-        const { data: sessionData } = await supabase
-          .from('attendance_sessions')
-          .select('id')
-          .eq('session_date', today)
-          .single();
-
-        if (!sessionData) {
-          throw new Error('No session found for today');
-        }
-
-        // Then delete the attendance record
-        await supabase
-          .from('attendance_records')
-          .delete()
-          .match({
-            student_id: studentId,
-            session_id: sessionData.id
+      if (action === 'checkin') {
+        const isCheckedIn = attendance[studentId]?.checkedIn;
+        console.log('Current check-in status:', isCheckedIn);
+  
+        if (isCheckedIn) {
+          // Delete the existing record
+          const recordId = attendance[studentId].recordId;
+          console.log('Attempting to delete record:', recordId);
+          
+          const { error: deleteError } = await supabase
+            .from('attendance_records')
+            .delete()
+            .eq('id', recordId);
+  
+          if (deleteError) {
+            console.error('Delete error:', deleteError);
+            throw deleteError;
+          }
+  
+          console.log('Record deleted successfully');
+  
+          // Update local state
+          setAttendance(prev => {
+            const newAttendance = { ...prev };
+            delete newAttendance[studentId];
+            return newAttendance;
           });
-      } else {
-        // First get or create today's session
-        let { data: sessionData } = await supabase
-          .from('attendance_sessions')
-          .select('id')
-          .eq('session_date', today)
-          .single();
-
-        if (!sessionData) {
-          // Create new session for today
-          const { data: newSession, error: sessionError } = await supabase
-            .from('attendance_sessions')
+  
+          setStats(prev => ({
+            ...prev,
+            presentToday: Math.max(0, prev.presentToday - 1),
+            attendanceRate: Math.round((Math.max(0, prev.presentToday - 1) / prev.totalStudents) * 100)
+          }));
+  
+          toast.success('Attendance removed');
+  
+        } else {
+          // Create new attendance record
+          console.log('Creating new attendance record');
+          
+          const { data: record, error: insertError } = await supabase
+            .from('attendance_records')
             .insert([{
-              session_date: today,
-              start_time: '15:30',
-              end_time: '16:00'
+              student_id: studentId,
+              session_id: currentSession.id,
+              check_in_time: new Date().toISOString()
             }])
             .select()
             .single();
-
-          if (sessionError) throw sessionError;
-          sessionData = newSession;
+  
+          if (insertError) {
+            console.error('Insert error:', insertError);
+            throw insertError;
+          }
+  
+          console.log('New record created:', record);
+  
+          // Update local state
+          setAttendance(prev => ({
+            ...prev,
+            [studentId]: {
+              checkedIn: true,
+              checkedOut: false,
+              recordId: record.id
+            }
+          }));
+  
+          setStats(prev => ({
+            ...prev,
+            presentToday: prev.presentToday + 1,
+            attendanceRate: Math.round(((prev.presentToday + 1) / prev.totalStudents) * 100)
+          }));
+  
+          toast.success('Student checked in');
         }
-
-        // Then create the attendance record
-        await supabase
+      } else if (action === 'checkout' && attendance[studentId]?.checkedIn) {
+        const recordId = attendance[studentId].recordId;
+        console.log('Checking out student:', {
+          studentId,
+          recordId,
+          currentAttendance: attendance[studentId]
+        });
+  
+        const { error: updateError } = await supabase
           .from('attendance_records')
-          .insert([{
-            student_id: studentId,
-            session_id: sessionData.id,
-            check_in_time: new Date().toISOString()
-          }]);
+          .update({ 
+            check_out_time: new Date().toISOString() 
+          })
+          .eq('id', recordId);
+  
+        if (updateError) {
+          console.error('Update error:', updateError);
+          throw updateError;
+        }
+  
+        console.log('Checkout successful');
+  
+        setAttendance(prev => ({
+          ...prev,
+          [studentId]: {
+            ...prev[studentId],
+            checkedOut: true
+          }
+        }));
+  
+        toast.success('Student checked out');
       }
-
-      // Update local state
-      setAttendance(prev => ({
-        ...prev,
-        [studentId]: !isPresent
-      }));
-
-      // Update stats
-      setStats(prev => ({
-        ...prev,
-        presentToday: !isPresent ? prev.presentToday + 1 : prev.presentToday - 1,
-        attendanceRate: Math.round(((prev.presentToday + (!isPresent ? 1 : -1)) / prev.totalStudents) * 100)
-      }));
-
+  
     } catch (err) {
       console.error('Error toggling attendance:', err);
-      toast.error(err.message || 'Failed to update attendance');
+      toast.error(`Failed to update attendance: ${err.message}`);
+      // Reload attendance data to ensure consistency
+      await loadAttendanceData();
     }
   };
 
@@ -219,16 +337,14 @@ export default function ChessClubDashboard() {
         </div>
 
         <div className="mt-4">
-        {activeTab === 'attendance' && (
-          <AttendanceTab 
-            students={students}
-            attendance={attendance}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            toggleAttendance={toggleAttendance}
-            loading={loading}
-            stats={stats}
-            setStats={setStats}
+          {activeTab === 'attendance' && (
+            <AttendanceTab 
+              students={students}
+              attendance={attendance}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              toggleAttendance={toggleAttendance}
+              loading={loading}
             />
           )}
           {activeTab === 'students' && (
