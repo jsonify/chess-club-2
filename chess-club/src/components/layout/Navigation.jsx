@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, Swords } from 'lucide-react';
+import { Menu, Swords, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 
 export default function Navigation({ onMenuClick }) {
   const location = useLocation();
@@ -14,6 +15,20 @@ export default function Navigation({ onMenuClick }) {
 
   const handleLinkClick = (href) => {
     toast.success(`Navigated to ${href}`);
+  };
+
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
+      toast.success('Logged out successfully');
+      // No need to navigate here as the ProtectedRoute component 
+      // will handle the redirect when the auth state changes
+    } catch (error) {
+      toast.error('Error signing out');
+      console.error('Error:', error);
+    }
   };
 
   return (
@@ -42,7 +57,11 @@ export default function Navigation({ onMenuClick }) {
               <Link
                 key={link.href}
                 to={link.href}
-                className={`px-3 py-2 text-sm font-medium rounded-md ${location.pathname === link.href ? 'bg-gray-100 text-gray-900' : 'text-gray-600 hover:bg-gray-50'}`}
+                className={`px-3 py-2 text-sm font-medium rounded-md ${
+                  location.pathname === link.href 
+                    ? 'bg-gray-100 text-gray-900' 
+                    : 'text-gray-600 hover:bg-gray-50'
+                }`}
                 onClick={() => handleLinkClick(link.href)}
               >
                 {link.label}
@@ -50,9 +69,15 @@ export default function Navigation({ onMenuClick }) {
             ))}
           </div>
 
-          {/* Right section */}
-          <div className="flex items-center gap-4">
-            {/* Add any additional items like user menu, notifications, etc. */}
+          {/* Right section - Logout button */}
+          <div className="flex items-center">
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-md"
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline">Sign out</span>
+            </button>
           </div>
         </div>
       </div>

@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import ChessClubHeader from './ChessClubHeader';
 import DashboardStats from './DashboardStats';
 import ClubDayAlert from './alerts/ClubDayAlert';
-import AttendanceTab from './tabs/AttendanceTab';
+import AttendanceTracker from '@/components/attendance/AttendanceTracker';
 import StudentsTab from './tabs/StudentsTab';
 import TournamentTab from './tabs/TournamentTab';
 
@@ -29,7 +29,7 @@ export default function ChessClubDashboard() {
     async function fetchDashboardData() {
       try {
         setLoading(true);
-        
+
         // Fetch students with attendance status
         const { data: studentsData, error: studentsError } = await supabase
           .from('students')
@@ -47,14 +47,14 @@ export default function ChessClubDashboard() {
           .eq('active', true)
           .order('grade')
           .order('last_name');
-          
+
         if (studentsError) throw studentsError;
 
         // Process attendance data
         const today = formatDate(new Date());
         const attendanceMap = {};
         studentsData?.forEach(student => {
-          const todayAttendance = student.attendance_records?.find(record => 
+          const todayAttendance = student.attendance_records?.find(record =>
             formatDate(record.attendance_sessions.session_date) === today
           );
           if (todayAttendance) {
@@ -88,12 +88,12 @@ export default function ChessClubDashboard() {
         setStats({
           totalStudents: studentsData?.length || 0,
           presentToday: Object.keys(attendanceMap).length,
-          attendanceRate: studentsData?.length 
-            ? Math.round((Object.keys(attendanceMap).length / studentsData.length) * 100) 
+          attendanceRate: studentsData?.length
+            ? Math.round((Object.keys(attendanceMap).length / studentsData.length) * 100)
             : 0,
           activeMatches: 0 // We'll update this when matches functionality is added
         });
-        
+
         setError(null);
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
@@ -111,7 +111,7 @@ export default function ChessClubDashboard() {
     try {
       const isPresent = attendance[studentId];
       const today = formatDate(new Date());
-      
+
       if (isPresent) {
         // First find the session_id for today
         const { data: sessionData } = await supabase
@@ -128,9 +128,9 @@ export default function ChessClubDashboard() {
         await supabase
           .from('attendance_records')
           .delete()
-          .match({ 
-            student_id: studentId, 
-            session_id: sessionData.id 
+          .match({
+            student_id: studentId,
+            session_id: sessionData.id
           });
       } else {
         // First get or create today's session
@@ -159,7 +159,7 @@ export default function ChessClubDashboard() {
         // Then create the attendance record
         await supabase
           .from('attendance_records')
-          .insert([{ 
+          .insert([{
             student_id: studentId,
             session_id: sessionData.id,
             check_in_time: new Date().toISOString()
@@ -188,13 +188,13 @@ export default function ChessClubDashboard() {
   return (
     <div className="space-y-6">
       <ChessClubHeader />
-      
+
       {isWednesday(new Date()) && <ClubDayAlert />}
-      
-      <DashboardStats 
-        stats={stats} 
-        loading={loading} 
-        error={error} 
+
+      <DashboardStats
+        stats={stats}
+        loading={loading}
+        error={error}
       />
 
       <div className="space-y-4">
@@ -220,7 +220,7 @@ export default function ChessClubDashboard() {
 
         <div className="mt-4">
           {activeTab === 'attendance' && (
-            <AttendanceTab 
+            <AttendanceTracker
               students={students}
               attendance={attendance}
               searchQuery={searchQuery}
@@ -230,7 +230,7 @@ export default function ChessClubDashboard() {
             />
           )}
           {activeTab === 'students' && (
-            <StudentsTab 
+            <StudentsTab
               students={students}
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
@@ -238,7 +238,7 @@ export default function ChessClubDashboard() {
             />
           )}
           {activeTab === 'tournaments' && (
-            <TournamentTab 
+            <TournamentTab
               achievementStats={achievementStats}
               recentMatches={recentMatches}
               loading={loading}

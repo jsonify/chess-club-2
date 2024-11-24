@@ -1,7 +1,7 @@
 // AttendanceStats.jsx
 import React from 'react';
 import { Users, CheckCircle, Trophy } from 'lucide-react';
-import { StatsCard } from './StatsCard';
+import { StatsCard } from './_StatsCard';
 
 export function AttendanceStats({ totalStudents, presentCount, attendanceRate }) {
   return (

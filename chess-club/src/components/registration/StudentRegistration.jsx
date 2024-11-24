@@ -122,38 +122,41 @@ export default function StudentRegistration() {
       }
       return;
     }
-
+  
     setLoading(true);
     setMessage(null);
-
+  
     try {
       // Prepare the data for submission
       const submissionData = {
-        ...formData,
-        // Clean phone numbers before saving
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        grade: formData.grade,
+        teacher: formData.teacher,
+        contact1_name: formData.contact1_name,
         contact1_phone: formData.contact1_phone.replace(/\D/g, ''),
-        contact2_phone: formData.contact2_phone ? formData.contact2_phone.replace(/\D/g, '') : null,
+        contact1_email: formData.contact1_email,
+        contact1_relationship: formData.contact1_relationship,
         // Handle optional fields
         contact2_name: formData.contact2_name || null,
+        contact2_phone: formData.contact2_phone ? formData.contact2_phone.replace(/\D/g, '') : null,
         contact2_email: formData.contact2_email || null,
         contact2_relationship: formData.contact2_relationship || null,
         // Set active status
-        active: true,
-        // Add registration date
-        registered_at: new Date().toISOString()
+        active: true
       };
-
+  
       const { error } = await supabase
         .from('students')
         .insert([submissionData]);
-
+  
       if (error) throw error;
-
+  
       setMessage({
         type: 'success',
         text: `Successfully registered ${formData.first_name} ${formData.last_name}`
       });
-
+  
       // Clear form
       setFormData({
         first_name: '',
@@ -169,10 +172,10 @@ export default function StudentRegistration() {
         contact2_relationship: '',
         contact2_email: ''
       });
-
+  
       // Scroll to top to show success message
       window.scrollTo({ top: 0, behavior: 'smooth' });
-
+  
     } catch (error) {
       setMessage({
         type: 'error',
