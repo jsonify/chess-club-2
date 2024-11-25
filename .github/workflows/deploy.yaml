@@ -1,60 +1,41 @@
 # .github/workflows/deploy.yml
-
-name: Deploy Chess Club
-
+name: Deploy to Supabase
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
   pull_request:
-    branches: [ "main" ]
-  workflow_dispatch:
+    branches: [main]
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
-
     env:
-      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
 
-      - name: Debug Checkout
-        run: |
-          echo "GitHub Workspace: $GITHUB_WORKSPACE"
-          echo "Repository files:"
-          ls -la
-          echo "Package.json exists?"
-          test -f package.json && echo "Yes" || echo "No"
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: '18'
-
-      - name: Verify package files
-        run: |
-          echo "Current working directory:"
-          pwd
-          echo "Package.json contents:"
-          cat package.json
-          echo "Package-lock.json exists?"
-          test -f package-lock.json && echo "Yes" || echo "No"
+          cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
-      - name: Run linting
-        run: npm run lint
-        
-      - name: Build project
+      - name: Build application
         run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        if: github.ref == 'refs/heads/main'
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
+      - name: Deploy to Supabase
+        run: |
+          supabase link --project-ref $PROJECT_ID
+          supabase db push
+          supabase functions deploy
