@@ -23,29 +23,38 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Debug file structure
+        run: |
+          echo "Current directory:"
+          pwd
+          echo "\nDirectory contents:"
+          ls -la
+          echo "\nRepository root contents:"
+          ls -la $GITHUB_WORKSPACE
+
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
 
-      - name: List directory contents
-        run: ls -la
-
       - name: Install dependencies
+        if: hashFiles('package.json') != ''
         run: |
-          npm cache clean --force
-          rm -rf node_modules
+          echo "Package.json contents:"
+          cat package.json
           npm install
 
       - name: Run linting
+        if: hashFiles('package.json') != ''
         run: npm run lint
 
       - name: Build project
+        if: hashFiles('package.json') != ''
         run: npm run build
 
       - name: Deploy to GitHub Pages
+        if: github.ref == 'refs/heads/main' && hashFiles('package.json') != ''
         uses: peaceiris/actions-gh-pages@v3
-        if: github.ref == 'refs/heads/main'
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
