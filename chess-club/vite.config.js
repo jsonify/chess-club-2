@@ -9,7 +9,9 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  base: process.env.GITHUB_PAGES ? '/chess-club/' : '/',
   build: {
-    target: 'esnext', // or 'es2020', 'es2022', 'node16', 'nodenext'
+    target: 'esnext',
+    outDir: 'dist',
   },
 });
