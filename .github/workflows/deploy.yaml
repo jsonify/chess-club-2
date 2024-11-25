@@ -18,16 +18,24 @@ jobs:
       VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
-          cache: 'npm'
+
+      - name: List directory contents
+        run: ls -la
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm cache clean --force
+          rm -rf node_modules
+          npm install
 
       - name: Run linting
         run: npm run lint
