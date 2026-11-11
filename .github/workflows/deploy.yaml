@@ -39,8 +39,10 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
       # Only deploy when changes land on main; pull requests just install and build.
+      # --remote targets the linked hosted project (the CLI defaults to a local stack);
+      # --yes skips the confirmation prompt, which CI cannot answer.
       - name: Deploy to Supabase
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           supabase link --project-ref "$PROJECT_ID"
-          supabase db push
+          supabase db push --remote --yes
