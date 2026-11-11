@@ -10,11 +10,14 @@ create table if not exists public.teachers (
 
 alter table public.teachers enable row level security;
 
-drop policy if exists "Signed-in users can manage teachers" on public.teachers;
-create policy "Signed-in users can manage teachers"
+-- The live app (chess-club-react) runs without sign-in, so it uses the anon
+-- role. Match the access it already has on students: anyone using the app
+-- can read and manage the teacher list.
+drop policy if exists "App users can manage teachers" on public.teachers;
+create policy "App users can manage teachers"
   on public.teachers
   for all
-  to authenticated
+  to anon, authenticated
   using (true)
   with check (true);
 
