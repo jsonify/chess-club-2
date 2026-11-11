@@ -1,7 +1,35 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, Search } from 'lucide-react';
+import { ChevronDown, ChevronUp, Search, Pencil, Check, X } from 'lucide-react';
 
-export default function StudentTable({ students }) {
+// `teacherOptions` (names) and `onTeacherChange(student, newTeacher)` are optional;
+// when both are given, each row gets a control to change the student's teacher.
+export default function StudentTable({ students, teacherOptions, onTeacherChange }) {
+  const [editingId, setEditingId] = useState(null);
+  const [editTeacher, setEditTeacher] = useState('');
+  const [saving, setSaving] = useState(false);
+  const canEditTeacher = Boolean(onTeacherChange && teacherOptions);
+
+  const startEdit = (student) => {
+    setEditingId(student.id);
+    setEditTeacher(student.teacher || '');
+  };
+
+  const saveTeacher = async (student) => {
+    if (!editTeacher || editTeacher === student.teacher) {
+      setEditingId(null);
+      return;
+    }
+    setSaving(true);
+    try {
+      await onTeacherChange(student, editTeacher);
+      setEditingId(null);
+    } catch {
+      // The caller reports the error; keep the row in edit mode so it can be retried.
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const [sortConfig, setSortConfig] = useState({
     key: 'last_name',
     direction: 'asc'
@@ -33,7 +61,7 @@ export default function StudentTable({ students }) {
     const matchesSearch = (
       student.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       student.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.teacher.toLowerCase().includes(searchTerm.toLowerCase())
+      (student.teacher || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
     const matchesGrade = filterGrade === 'all' || student.grade.toString() === filterGrade;
     return matchesSearch && matchesGrade;
@@ -141,7 +169,54 @@ export default function StudentTable({ students }) {
                   <div className="text-sm text-gray-900">{student.grade}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{student.teacher}</div>
+                  {editingId === student.id ? (
+                    <div className="flex items-center gap-1">
+                      <select
+                        value={editTeacher}
+                        onChange={(e) => setEditTeacher(e.target.value)}
+                        className="border rounded-md px-2 py-1 text-sm"
+                        autoFocus
+                      >
+                        {/* Keep the current teacher selectable even if they've been deactivated */}
+                        {[...new Set([student.teacher, ...teacherOptions].filter(Boolean))]
+                          .sort((a, b) => a.localeCompare(b))
+                          .map(name => (
+                            <option key={name} value={name}>{name}</option>
+                          ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => saveTeacher(student)}
+                        disabled={saving}
+                        className="p-1.5 text-green-600 hover:bg-green-50 rounded-md"
+                        aria-label="Save teacher"
+                      >
+                        <Check className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingId(null)}
+                        className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-md"
+                        aria-label="Cancel"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 text-sm text-gray-900">
+                      {student.teacher}
+                      {canEditTeacher && (
+                        <button
+                          type="button"
+                          onClick={() => startEdit(student)}
+                          className="p-1 text-gray-400 hover:text-gray-700 rounded-md"
+                          aria-label={`Change teacher for ${student.first_name} ${student.last_name}`}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right">
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${

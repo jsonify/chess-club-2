@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Users, AlertCircle } from 'lucide-react';
 import StudentTable from '@/components/StudentTable';
+import { toast } from 'sonner';
+import { useTeachers } from '@/hooks/useTeachers';
 
 export default function StudentDirectory() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { activeTeachers } = useTeachers();
   const [stats, setStats] = useState({
     totalActive: 0,
     byGrade: {},
@@ -49,6 +52,22 @@ export default function StudentDirectory() {
 
     fetchStudents();
   }, []);
+
+  const handleTeacherChange = async (student, teacher) => {
+    const { error: updateError } = await supabase
+      .from('students')
+      .update({ teacher })
+      .eq('id', student.id);
+
+    if (updateError) {
+      console.error('Error updating teacher:', updateError);
+      toast.error(`Couldn't change teacher: ${updateError.message}`);
+      throw updateError;
+    }
+
+    setStudents(prev => prev.map(s => (s.id === student.id ? { ...s, teacher } : s)));
+    toast.success(`${student.first_name} ${student.last_name} moved to ${teacher}`);
+  };
 
   return (
     <div className="py-6">
@@ -128,7 +147,11 @@ export default function StudentDirectory() {
 
         {/* Student Table */}
         <div className="mt-8">
-          <StudentTable students={students} />
+          <StudentTable
+            students={students}
+            teacherOptions={activeTeachers.map(t => t.name)}
+            onTeacherChange={handleTeacherChange}
+          />
         </div>
       </div>
     </div>
