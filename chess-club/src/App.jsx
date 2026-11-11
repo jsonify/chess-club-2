@@ -7,6 +7,7 @@ import Dashboard from '@/pages/Dashboard';
 import Registration from '@/pages/Registration';
 import Tournaments from '@/pages/Tournaments';
 import StudentDirectory from '@/pages/StudentDirectory';
+import Teachers from '@/pages/Teachers';
 import Login from '@/pages/Login';
 import NotFound from '@/pages/NotFound';
 
@@ -24,6 +25,7 @@ export default function App() {
             <Route path="registration" element={<Registration />} />
             <Route path="tournaments" element={<Tournaments />} />
             <Route path="students" element={<StudentDirectory />} />
+            <Route path="teachers" element={<Teachers />} />
           </Route>
         </Route>
 

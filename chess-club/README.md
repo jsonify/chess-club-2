@@ -106,6 +106,19 @@ create table students (
 );
 ```
 
+### Teachers
+Managed from the **Teachers** page. `students.teacher` stores the teacher's name; renaming a
+teacher updates their students, and deactivating one hides them from registration.
+See `supabase/migrations/20261111000000_create_teachers.sql`.
+```sql
+create table teachers (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  active boolean not null default true,
+  created_at timestamp with time zone not null default timezone('utc'::text, now())
+);
+```
+
 ### Attendance
 ```sql
 create table attendance_sessions (

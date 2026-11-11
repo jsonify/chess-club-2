@@ -9,7 +9,8 @@ export default function Sidebar({ open, onClose }) {
     { href: '/', label: 'Dashboard' },
     { href: '/registration', label: 'Registration' },
     { href: '/tournaments', label: 'Tournaments' },
-    { href: '/students', label: 'Students' }
+    { href: '/students', label: 'Students' },
+    { href: '/teachers', label: 'Teachers' }
   ];
 
   const handleLinkClick = (href) => {
